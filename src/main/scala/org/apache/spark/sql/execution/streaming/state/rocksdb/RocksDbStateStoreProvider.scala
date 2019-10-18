@@ -146,7 +146,8 @@ private[sql] class RocksDbStateStoreProvider extends StateStoreProvider with Log
     override def getRange(
         start: Option[UnsafeRow],
         end: Option[UnsafeRow]): Iterator[UnsafeRowPair] = {
-      require(state == UPDATING, "Cannot getRange after already committed or aborted")
+      initTransaction()
+      require(state == UPDATING, s"Cannot getRange after already committed or aborted: state is $state")
       iterator()
     }
 
@@ -425,6 +426,7 @@ private[sql] class RocksDbStateStoreProvider extends StateStoreProvider with Log
     try {
       logInfo(s"Will download $fileToRead at location ${tmpLocFile.toString()}")
       if (downloadFile(fm, fileToRead, new Path(tmpLocFile.getAbsolutePath), sparkConf)) {
+        logInfo(s"file ${tmpLocFile.getAbsolutePath} size ${new File(tmpLocFile.getAbsolutePath).length()}")
         FileUtility.extractTarFile(tmpLocFile.getAbsolutePath, versionTempPath)
         if (!tmpLocDir.list().exists(_.endsWith(".sst"))) {
           logWarning("Snapshot files are corrupted")
@@ -509,12 +511,13 @@ private[sql] class RocksDbStateStoreProvider extends StateStoreProvider with Log
         val snapShotFileName = s"{getTempPath(lastVersion)}.snapshot"
         val f = new File(snapShotFileName)
         try {
-          val (_, t1) = Utils.timeTakenMs {
+          val (tfile, t1) = Utils.timeTakenMs {
             FileUtility.createTarFile(dbPath, snapShotFileName)
             val targetFile = snapshotFile(baseDir, lastVersion)
             uploadFile(fm, new Path(snapShotFileName), targetFile, sparkConf)
+            targetFile
           }
-          logInfo(s"Creating snapshot file for ${stateStoreId_.partitionId} took $t1 ms.")
+          logInfo(s"Creating snapshot file for ${stateStoreId_.partitionId} to ${tfile} took $t1 ms.")
         } catch {
           case e: Exception =>
             logError(s"Exception while creating snapshot $e")
