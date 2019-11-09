@@ -1,13 +1,13 @@
 name := "spark-statestore-rocksdb"
 
-
 val sparkVersion = "2.4.3"
-val scalaVersionBase = "2.12"
+
+//scalaVersion := "2.12.8"
+scalaVersion := "2.11.12"
+
 val rocksDBVersion = "6.2.2"
 
 version := "2.4.3"
-
-val scalaVersion = s"$scalaVersionBase.8"
 
 javacOptions ++= Seq("-source", "1.8")
 
